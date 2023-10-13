@@ -17,75 +17,61 @@ def processnullabledate(inputstring):
 
 if __name__ == '__main__':
 
-    if choice=="1":
+    # Go to UAlbany IDCards page
+    urlpage = 'https://idcard.albany.edu/admin/patrongroups/patrongroups.php'
+    driver = selenium.webdriver.Firefox()
+    driver.get(urlpage)
 
-        urlpage = 'https://idcard.albany.edu/admin/patrongroups/patrongroups.php'
-        print(urlpage)
-        driver = selenium.webdriver.Firefox()
+    # Get predefined list of ID card groups to scrape
+    idcardgroups = []
+    with open("idcardgroupnames.txt", 'r') as groupnames:
+        for groupname in groupnames:
+            pattern = r"^\d+ (.*)"
+            match = re.search(pattern, groupname)
+            idcardgroups.append(match.groups()[0])
 
-        driver.get(urlpage)
+    # Initialize list to hold dictionary entries for each ID card record
+    list1 = []
 
+    # Loop through ID card groups
+    for idcardgroup in idcardgroups:
 
-        # Get list of groups to scrape
-        idcardgroups = []
-        with open("idcardgroupnames.txt", 'r') as groupnames:
-            for groupname in groupnames:
-                pattern = r"^\d+ (.*)"
-                match = re.search(pattern, groupname)
-                idcardgroups.append(match.groups()[0])
+        # This version requires a human to manually position the browser to a specific
+        # group and then agree to "continue" to scrape that page for that group
+        print("Position yourself at group '{0}' and then type '1' to continue".format(idcardgroup))
 
-        list1 = []
+        if len(input("Continue?  ")) > 0:
+            nameofgroup = idcardgroup
+        else:
+            break
 
-        for idcardgroup in idcardgroups:
-            print("Position yourself at group '{0}' and then type '1' to continue".format(idcardgroup))
+        ualbanyids = driver.find_elements(By.CLASS_NAME, 'td-PIK')
+        names = driver.find_elements(By.CLASS_NAME, 'td-NAME')
+        startdates = driver.find_elements(By.CLASS_NAME, 'td-GROUPEFFECTIVE')
+        enddates = driver.find_elements(By.CLASS_NAME, 'td-GROUPEXPIRE')
+        comments = driver.find_elements(By.CLASS_NAME, 'td-THECOMMENT')
+        createdate = driver.find_elements(By.CLASS_NAME, 'td-CREATEDATE')
+        operatorname = driver.find_elements(By.CLASS_NAME, 'td-OPERATORNAME')
+        membertype = driver.find_elements(By.CLASS_NAME, "td-MEMBERTYPE")
 
-            if len(input("Continue?  ")) > 0:
-                nameofgroup = idcardgroup
-            else:
-                break
+        # - elements = driver.find_elements(By.CLASS_NAME, 'author')
 
-            # print("Situate yourself on main page")
-            # print("Select first group and enter group name")
-            # nameofgroup = input("Group Name")
+        counter = 0
+        for ualbanyid in ualbanyids:
+            tempdict = {"nameofgroup": nameofgroup}
+            tempdict["ualbanyempid"] = ualbanyid.text
+            tempdict["name"] = names[counter].text
+            tempdict["startdate"] = startdates[counter].text
+            tempdict["enddate"] = enddates[counter].text
+            tempdict["comment"] = comments[counter].text
+            tempdict["createdate"] = createdate[counter].text
+            tempdict["operatorname"] = operatorname[counter].text
+            tempdict["membertype"] = membertype[counter].text
 
-            # while nameofgroup != "quit":
+            list1.append(tempdict)
+            counter += 1
 
-            ualbanyids = driver.find_elements(By.CLASS_NAME, 'td-PIK')
-            names = driver.find_elements(By.CLASS_NAME, 'td-NAME')
-            startdates = driver.find_elements(By.CLASS_NAME, 'td-GROUPEFFECTIVE')
-            enddates = driver.find_elements(By.CLASS_NAME, 'td-GROUPEXPIRE')
-            comments = driver.find_elements(By.CLASS_NAME, 'td-THECOMMENT')
-            createdate = driver.find_elements(By.CLASS_NAME, 'td-CREATEDATE')
-            operatorname = driver.find_elements(By.CLASS_NAME, 'td-OPERATORNAME')
-            membertype = driver.find_elements(By.CLASS_NAME, "td-MEMBERTYPE")
-
-            # - elements = driver.find_elements(By.CLASS_NAME, 'author')
-
-            counter = 0
-            for ualbanyid in ualbanyids:
-                tempdict = {"nameofgroup": nameofgroup}
-                tempdict["ualbanyempid"] = ualbanyid.text
-                tempdict["name"] = names[counter].text
-                tempdict["startdate"] = startdates[counter].text
-                tempdict["enddate"] = enddates[counter].text
-                tempdict["comment"] = comments[counter].text
-                tempdict["createdate"] = createdate[counter].text
-                tempdict["operatorname"] = operatorname[counter].text
-                tempdict["membertype"] = membertype[counter].text
-
-                list1.append(tempdict)
-                counter += 1
-
-                # driver.execute_script("wi=ndow.scrollTo(0,document.body.scrollHeight);var lenOfPage=document.body.scrollHeight;return lenofPage;")
-
-            # nameofgroup = input("Enter next name of group")
-
-            # Write out to JSON file at end
-            f = open("output_tmp.json", "a")
-            for item in list1:
-                f.write(json.dumps(item, indent=4))
-            f.close()
-
-        with open("sample.json", "w") as outfile:
-            json.dump(list1, outfile, skipkeys=False, ensure_ascii=True, check_circular=True,
-                      allow_nan=True, cls=None, indent=None, separators=None)
+    # Once all entries have been cached, write it all out as a JSON file
+    with open("ualbanyidcards.json", "w") as outfile:
+        json.dump(list1, outfile, skipkeys=False, ensure_ascii=True, check_circular=True,
+                  allow_nan=True, cls=None, indent=None, separators=None)
